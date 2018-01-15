@@ -121,6 +121,46 @@ local function is_blacklisted(url)
     return false
 end
 
+local function parse_yt_playlist(url, json)
+    -- return 0-based index to use with --playlist-start
+
+    if not json.extractor or json.extractor ~= "youtube:playlist" then
+        return nil
+    end
+
+    local query = url:match("%?.+")
+    if not query then return nil end
+
+    local args = {}
+    for arg, param in query:gmatch("(%a+)=([^&?]+)") do
+        if arg and param then
+            args[arg] = param
+        end
+    end
+
+    local maybe_idx = tonumber(args["index"])
+    msg.debug(maybe_idx)
+
+    -- if index matches v param it's probably the requested item
+    if maybe_idx and #json.entries >= maybe_idx and
+        json.entries[maybe_idx].id == args["v"] then
+        msg.debug("index matches requested video")
+        return maybe_idx - 1
+    end
+
+    -- if there's no index or it doesn't match, look for video
+    for i = 1, #json.entries do
+        if json.entries[i] == args["v"] then
+            msg.debug("found requested video in index " .. (i - 1))
+            return i - 1
+        end
+    end
+
+    msg.debug("requested video not found in playlist")
+    -- if item isn't on the playlist, give up
+    return nil
+end
+
 local function make_absolute_url(base_url, url)
     if url:find("https?://") == 1 then return url end
 
@@ -390,10 +430,11 @@ mp.add_hook(o.try_ytdl_first and "on_load" or "on_load_fail", 10, function ()
     local raw_options = mp.get_property_native("options/ytdl-raw-options")
     local allsubs = true
     local proxy = nil
+    local use_playlist = false
 
     local command = {
         ytdl.path, "--no-warnings", "-J", "--flat-playlist",
-        "--sub-format", "ass/srt/best", "--no-playlist"
+        "--sub-format", "ass/srt/best"
     }
 
     -- Checks if video option is "no", change format accordingly,
@@ -418,14 +459,18 @@ mp.add_hook(o.try_ytdl_first and "on_load" or "on_load_fail", 10, function ()
         end
         if (param == "sub-lang") and (arg ~= "") then
             allsubs = false
-        end
-        if (param == "proxy") and (arg ~= "") then
+        elseif (param == "proxy") and (arg ~= "") then
             proxy = arg
+        elseif (param == "yes-playlist") then
+            use_playlist = true
         end
     end
 
     if (allsubs == true) then
         table.insert(command, "--all-subs")
+    end
+    if not use_playlist then
+        table.insert(command, "--no-playlist")
     end
     table.insert(command, "--")
     table.insert(command, url)
@@ -530,6 +575,7 @@ mp.add_hook(o.try_ytdl_first and "on_load" or "on_load_fail", 10, function ()
             msg.verbose("Playlist with single entry detected.")
             add_single_video(json.entries[1])
         else
+            local playlist_index = parse_yt_playlist(url, json)
             local playlist = {"#EXTM3U"}
             for i, entry in pairs(json.entries) do
                 local site = entry.url
@@ -556,6 +602,11 @@ mp.add_hook(o.try_ytdl_first and "on_load" or "on_load_fail", 10, function ()
                 end
                 table.insert(playlist, site)
 
+            end
+
+            if use_playlist and
+                not option_was_set("playlist-start") and playlist_index then
+                mp.set_property_number("playlist-start", playlist_index)
             end
 
             mp.set_property("stream-open-filename", "memory://" .. table.concat(playlist, "\n"))
