@@ -54,18 +54,16 @@ local function set_http_headers(http_headers)
     end
 end
 
-local function append_rtmp_prop(props, name, value)
-    if not name or not value then
-        return props
+local function append_libav_opt(props, name, value)
+    if not props then
+        props = {}
     end
 
-    if props and props ~= "" then
-        props = props..","
-    else
-        props = ""
+    if name and value then
+        table.insert(props, name.."=[\""..value.."\"]")
     end
 
-    return props..name.."=\""..value.."\""
+    return props
 end
 
 local function edl_escape(url)
@@ -326,22 +324,40 @@ local function add_single_video(json)
         mp.set_property('file-local-options/video-aspect', json.stretched_ratio)
     end
 
+    local stream_opts = {}
+
     -- for rtmp
     if (json.protocol == "rtmp") then
-        local rtmp_prop = append_rtmp_prop(nil,
+        stream_opts = append_libav_opt(stream_opts,
             "rtmp_tcurl", streamurl)
-        rtmp_prop = append_rtmp_prop(rtmp_prop,
+        stream_opts = append_libav_opt(stream_opts,
             "rtmp_pageurl", json.page_url)
-        rtmp_prop = append_rtmp_prop(rtmp_prop,
+        stream_opts = append_libav_opt(stream_opts,
             "rtmp_playpath", json.play_path)
-        rtmp_prop = append_rtmp_prop(rtmp_prop,
+        stream_opts = append_libav_opt(stream_opts,
             "rtmp_swfverify", json.player_url)
-        rtmp_prop = append_rtmp_prop(rtmp_prop,
+        stream_opts = append_libav_opt(stream_opts,
             "rtmp_swfurl", json.player_url)
-        rtmp_prop = append_rtmp_prop(rtmp_prop,
+        stream_opts = append_libav_opt(stream_opts,
             "rtmp_app", json.app)
+    end
 
-        mp.set_property("file-local-options/stream-lavf-o", rtmp_prop)
+    if json.proxy and json.proxy ~= "" then
+        local proxy = nil
+        if json.proxy:find("socks://") ~= nil then
+            msg.verbose("ffmpeg doesn't support SOCKS proxies")
+        else
+            -- ffmpeg needs the url to start with http://,
+            -- even for https proxies
+            local proxy = "http://"..json.proxy:gsub("^https?://", "")
+            stream_opts = append_libav_opt(stream_opts,
+                "http_proxy", proxy)
+        end
+    end
+
+    if #stream_opts > 0 then
+        mp.set_property("file-local-options/stream-lavf-o",
+            table.concat(stream_opts, ","))
     end
 end
 
@@ -370,6 +386,7 @@ mp.add_hook(o.try_ytdl_first and "on_load" or "on_load_fail", 10, function ()
         local format = mp.get_property("options/ytdl-format")
         local raw_options = mp.get_property_native("options/ytdl-raw-options")
         local allsubs = true
+        local proxy = nil
 
         local command = {
             ytdl.path, "--no-warnings", "-J", "--flat-playlist",
@@ -398,6 +415,9 @@ mp.add_hook(o.try_ytdl_first and "on_load" or "on_load_fail", 10, function ()
             end
             if (param == "sub-lang") and (arg ~= "") then
                 allsubs = false
+            end
+            if (param == "proxy") and (arg ~= "") then
+                proxy = arg
             end
         end
 
@@ -431,6 +451,8 @@ mp.add_hook(o.try_ytdl_first and "on_load" or "on_load_fail", 10, function ()
 
         msg.verbose("youtube-dl succeeded!")
         msg.debug('ytdl parsing took '..os.clock()-start_time..' seconds')
+
+        json["proxy"] = not json["proxy"] and proxy or nil
 
         -- what did we get?
         if not (json["direct"] == nil) and (json["direct"] == true) then
