@@ -734,8 +734,8 @@ void autoload_external_files(struct MPContext *mpctx)
             goto skip;
         if (list[i].type == STREAM_AUDIO && !sc[STREAM_VIDEO])
             goto skip;
-        struct track *track = mp_add_external_file(mpctx, filename, list[i].type,
-                                                    true, lang);
+        mp_add_external_file(mpctx, filename, list[i].type,
+                                true, lang);
     skip:;
     }
 
