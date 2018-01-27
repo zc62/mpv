@@ -20,6 +20,7 @@
 #include <strings.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include <libavutil/avutil.h>
 
@@ -332,22 +333,42 @@ static bool compare_track(struct track *t1, struct track *t2, char **langs,
         return !t1->is_external;
     bool ext1 = t1->is_external && !t1->no_default;
     bool ext2 = t2->is_external && !t2->no_default;
-    if (ext1 != ext2)
+    if (ext1 != ext2) {
+        printf("!!HAHA: track %d and track %d are not both external!\n",
+                t1->user_tid, t2->user_tid);
         return ext1;
-    if (t1->auto_loaded != t2->auto_loaded)
+    }
+    if (t1->auto_loaded != t2->auto_loaded) {
+        printf("!!HAHA: track %d and %d: auto load difference!\n",
+                t1->user_tid, t2->user_tid);
         return !t1->auto_loaded;
+    }
     int l1 = match_lang(langs, t1->lang), l2 = match_lang(langs, t2->lang);
-    if (l1 != l2)
+    if (l1 != l2) {
+        printf("!!HAHA: track %d and %d: match lang difference!\n",
+                t1->user_tid, t2->user_tid);
         return l1 > l2;
-    if (t1->forced_track != t2->forced_track)
+    }
+    if (t1->forced_track != t2->forced_track) {
+        printf("!!HAHA: track %d and %d: force track difference!\n",
+                t1->user_tid, t2->user_tid);
         return t1->forced_track;
-    if (t1->default_track != t2->default_track)
+    }
+    if (t1->default_track != t2->default_track) {
+        printf("!!HAHA: track %d and %d: default track difference!\n",
+                t1->user_tid, t2->user_tid);
         return t1->default_track;
-    if (t1->attached_picture != t2->attached_picture)
+    }
+    if (t1->attached_picture != t2->attached_picture) {
+        printf("!!HAHA: track %d and %d: attach pic difference!\n",
+                t1->user_tid, t2->user_tid);
         return !t1->attached_picture;
+    }
     if (t1->stream && t2->stream && opts->hls_bitrate >= 0 &&
         t1->stream->hls_bitrate != t2->stream->hls_bitrate)
     {
+        printf("!!HAHA: track %d and %d: hls bitrate in effect!\n",
+                t1->user_tid, t2->user_tid);
         bool t1_ok = t1->stream->hls_bitrate <= opts->hls_bitrate;
         bool t2_ok = t2->stream->hls_bitrate <= opts->hls_bitrate;
         if (t1_ok != t2_ok)
@@ -356,6 +377,8 @@ static bool compare_track(struct track *t1, struct track *t2, char **langs,
             return t1->stream->hls_bitrate > t2->stream->hls_bitrate;
         return t1->stream->hls_bitrate < t2->stream->hls_bitrate;
     }
+    printf("!!HAHA: track %d and %d: just comparing tid!\n",
+            t1->user_tid, t2->user_tid);
     return t1->user_tid <= t2->user_tid;
 }
 struct track *select_default_track(struct MPContext *mpctx, int order,
@@ -370,14 +393,28 @@ struct track *select_default_track(struct MPContext *mpctx, int order,
     struct track *pick = NULL;
     for (int n = 0; n < mpctx->num_tracks; n++) {
         struct track *track = mpctx->tracks[n];
-        if (track->type != type)
+        printf("!!HAHA: evaluating track %d\n", track->user_tid);
+        if (track->type != type) {
+            printf("!!HAHA: track %d type wrong\n", track->user_tid);
             continue;
+        }
         if (track->user_tid == tid)
             return track;
-        if (track->no_auto_select)
+        if (track->no_auto_select) {
+            printf("!!HAHA: track %d type should not be auto selected\n",
+                    track->user_tid);
             continue;
-        if (!pick || compare_track(track, pick, langs, mpctx->opts))
+        }
+        if (!pick || compare_track(track, pick, langs, mpctx->opts)) {
+            if (!pick) {
+                 printf("!!HAHA: initialize pick with track %d\n",
+                         track->user_tid);
+            } else {
+                 printf("!!HAHA: select track %d over track %d\n",
+                         track->user_tid, pick->user_tid);
+            }
             pick = track;
+        }
     }
     if (pick && !select_fallback && !(pick->is_external && !pick->no_default)
         && !match_lang(langs, pick->lang) && !pick->default_track
@@ -630,7 +667,9 @@ struct track *mp_add_external_file(struct MPContext *mpctx, char *filename,
         struct track *t = add_stream_track(mpctx, demuxer, sh);
         t->is_external = true;
         t->title = talloc_strdup(t, mp_basename(disp_filename));
+        printf("!! title is %s\n", t->title);
         t->external_filename = talloc_strdup(t, filename);
+        printf("!! external_filename is %s\n", t->external_filename);
         t->no_default = sh->type != filter;
         t->no_auto_select = filter == STREAM_TYPE_COUNT;
         if (!first && (filter == STREAM_TYPE_COUNT || sh->type == filter))
@@ -689,6 +728,7 @@ void autoload_external_files(struct MPContext *mpctx)
             goto skip;
         struct track *track = mp_add_external_file(mpctx, filename, list[i].type);
         if (track) {
+            printf("!!HAHA: set track %d ->auto_loaded to true.\n", track->user_tid);
             track->auto_loaded = true;
             if (!track->lang)
                 track->lang = talloc_strdup(track, lang);
