@@ -672,6 +672,8 @@ struct track *mp_add_external_file(struct MPContext *mpctx, char *filename,
         printf("!! external_filename is %s\n", t->external_filename);
         t->no_default = sh->type != filter;
         t->no_auto_select = filter == STREAM_TYPE_COUNT;
+        t->auto_loaded = auto_loaded;
+        printf("!!HAHA: set track %d ->auto_loaded to true.\n", t->user_tid);
         if (!first && (filter == STREAM_TYPE_COUNT || sh->type == filter))
             first = t;
     }
@@ -729,10 +731,11 @@ void autoload_external_files(struct MPContext *mpctx)
         struct track *track = mp_add_external_file(mpctx, filename, list[i].type,
                                                     true);
         if (track) {
-            printf("!!HAHA: set track %d ->auto_loaded to true.\n", track->user_tid);
-            track->auto_loaded = true;
-            if (!track->lang)
+            if (!track->lang) {
+                printf("!!?? Will !track->lang ever be true??\n");
                 track->lang = talloc_strdup(track, lang);
+                printf("!! Oh it does! now track->lang is %s\n", track->lang);
+            }
         }
     skip:;
     }
