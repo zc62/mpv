@@ -5298,7 +5298,7 @@ int run_command(struct MPContext *mpctx, struct mp_cmd *cmd, struct mpv_node *re
             }
         }
         struct track *t = mp_add_external_file(mpctx, cmd->args[0].v.s, type,
-                                                false);
+                                                false, NULL);
         if (!t)
             return -1;
         if (cmd->args[1].v.i == 1) {
@@ -5345,7 +5345,7 @@ int run_command(struct MPContext *mpctx, struct mp_cmd *cmd, struct mpv_node *re
         if (t && t->is_external && t->external_filename) {
             char *filename = talloc_strdup(NULL, t->external_filename);
             mp_remove_track(mpctx, t);
-            nt = mp_add_external_file(mpctx, filename, type, false);
+            nt = mp_add_external_file(mpctx, filename, type, false, NULL);
             talloc_free(filename);
         }
         if (nt) {

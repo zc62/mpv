@@ -613,7 +613,8 @@ bool mp_remove_track(struct MPContext *mpctx, struct track *track)
 // Add the given file as additional track. Only tracks of type "filter" are
 // included; pass STREAM_TYPE_COUNT to disable filtering.
 struct track *mp_add_external_file(struct MPContext *mpctx, char *filename,
-                                   enum stream_type filter, bool auto_loaded)
+                                   enum stream_type filter, bool auto_loaded,
+                                   char *lang)
 {
     struct MPOpts *opts = mpctx->opts;
     if (!filename)
@@ -673,6 +674,11 @@ struct track *mp_add_external_file(struct MPContext *mpctx, char *filename,
         t->no_default = sh->type != filter;
         t->no_auto_select = filter == STREAM_TYPE_COUNT;
         t->auto_loaded = auto_loaded;
+        if (!t->lang && lang) {
+            printf("!!?? Will !track->lang ever be true??\n");
+            t->lang = talloc_strdup(t, lang);
+            printf("!! Oh it does! now track->lang is %s\n", t->lang);
+        }
         printf("!!HAHA: set track %d ->auto_loaded to true.\n", t->user_tid);
         if (!first && (filter == STREAM_TYPE_COUNT || sh->type == filter))
             first = t;
@@ -689,7 +695,7 @@ static void open_external_files(struct MPContext *mpctx, char **files,
                                 enum stream_type filter)
 {
     for (int n = 0; files && files[n]; n++)
-        mp_add_external_file(mpctx, files[n], filter, false);
+        mp_add_external_file(mpctx, files[n], filter, false, NULL);
 }
 
 void autoload_external_files(struct MPContext *mpctx)
@@ -729,14 +735,7 @@ void autoload_external_files(struct MPContext *mpctx)
         if (list[i].type == STREAM_AUDIO && !sc[STREAM_VIDEO])
             goto skip;
         struct track *track = mp_add_external_file(mpctx, filename, list[i].type,
-                                                    true);
-        if (track) {
-            if (!track->lang) {
-                printf("!!?? Will !track->lang ever be true??\n");
-                track->lang = talloc_strdup(track, lang);
-                printf("!! Oh it does! now track->lang is %s\n", track->lang);
-            }
-        }
+                                                    true, lang);
     skip:;
     }
 
