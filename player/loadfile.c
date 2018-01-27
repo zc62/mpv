@@ -613,7 +613,7 @@ bool mp_remove_track(struct MPContext *mpctx, struct track *track)
 // Add the given file as additional track. Only tracks of type "filter" are
 // included; pass STREAM_TYPE_COUNT to disable filtering.
 struct track *mp_add_external_file(struct MPContext *mpctx, char *filename,
-                                   enum stream_type filter)
+                                   enum stream_type filter, bool auto_loaded)
 {
     struct MPOpts *opts = mpctx->opts;
     if (!filename)
@@ -687,7 +687,7 @@ static void open_external_files(struct MPContext *mpctx, char **files,
                                 enum stream_type filter)
 {
     for (int n = 0; files && files[n]; n++)
-        mp_add_external_file(mpctx, files[n], filter);
+        mp_add_external_file(mpctx, files[n], filter, false);
 }
 
 void autoload_external_files(struct MPContext *mpctx)
@@ -726,7 +726,8 @@ void autoload_external_files(struct MPContext *mpctx)
             goto skip;
         if (list[i].type == STREAM_AUDIO && !sc[STREAM_VIDEO])
             goto skip;
-        struct track *track = mp_add_external_file(mpctx, filename, list[i].type);
+        struct track *track = mp_add_external_file(mpctx, filename, list[i].type,
+                                                    true);
         if (track) {
             printf("!!HAHA: set track %d ->auto_loaded to true.\n", track->user_tid);
             track->auto_loaded = true;
