@@ -1603,6 +1603,8 @@ static int demux_mkv_open_audio(demuxer_t *demuxer, mkv_track_t *track)
     if (!track->a_osfreq)
         track->a_osfreq = track->a_sfreq;
     sh_a->bits_per_coded_sample = track->a_bps ? track->a_bps : 16;
+    if (!track->a_bps)
+        printf("!! track->a_bps is %d. Fall back to 16.\n", track->a_bps);
     sh_a->samplerate = (uint32_t) track->a_osfreq;
     mp_chmap_set_unknown(&sh_a->channels, track->a_channels);
 
