@@ -20,6 +20,7 @@
 #include <strings.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include <libavutil/avutil.h>
 
@@ -692,13 +693,17 @@ void autoload_external_files(struct MPContext *mpctx)
         struct track *track = mp_add_external_file(mpctx, filename, list[i].type);
         if (track) {
             int first = 0;
+            printf("Total number of tracks is: %d\n", mpctx->num_tracks);
             for (int n = 0; n < mpctx->num_tracks; n++) {
                 struct track *t = mpctx->tracks[n];
                 if (t == track) {
                     first = n;
+                    printf("The first track is: %d\n", first);
                     break;
                 }
             }
+            printf("There are %d tracks in autoloaded external files.\n",
+                    track->num_tracks);
             for (int n = first; n < first + track->num_tracks; n++) {
                 struct track *t = mpctx->tracks[n];
                 t->auto_loaded = true;
