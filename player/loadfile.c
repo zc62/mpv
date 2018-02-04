@@ -691,7 +691,7 @@ void autoload_external_files(struct MPContext *mpctx)
             goto skip;
         struct track *track = mp_add_external_file(mpctx, filename, list[i].type);
         if (track) {
-            int first;
+            int first = 0;
             for (int n = 0; n < mpctx->num_tracks; n++) {
                 struct track *t = mpctx->tracks[n];
                 if (t == track) {
